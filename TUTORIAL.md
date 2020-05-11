@@ -34,11 +34,39 @@ Clone the github repository:
 ```bash
 git clone https://github.com/mesmacosta/cloudsql-mysql-tooling
 ```
+Go to the cloned repo directory:
+```bash
+cd cloudsql-mysql-tooling
+```
 
 Next execute the `init-db.sh` script.
 This will create your MySQL instance and populate it with random schema.
 ```bash
 source init-db.sh
+```
+
+## Set Up the Service Account
+
+Create a Service Account.
+```bash
+gcloud iam service-accounts create mysql2dc-credentials \
+--display-name  "Service Account for MySQL to Data Catalog connector" \
+--project $PROJECT_ID
+```
+
+Next create and download the Service Account Key.
+```bash
+gcloud iam service-accounts keys create "mysql2dc-credentials.json" \
+--iam-account "mysql2dc-credentials@$PROJECT_ID.iam.gserviceaccount.com" 
+```
+
+Next add Data Catalog admin role to the Service Account.
+```bash
+gcloud projects add-iam-policy-binding $PROJECT_ID \
+--member "serviceAccount:mysql2dc-credentials@$PROJECT_ID.iam.gserviceaccount.com" \
+--quiet \
+--project $PROJECT_ID \
+--role "roles/datacatalog.admin"
 ```
 
 ## Execute the MySQL connector
@@ -52,7 +80,7 @@ The environment variables were loaded by the `init-db.sh` script.
 Execute the connector:
 ```bash
 docker run --rm --tty -v \
-"$PWD":/data gcr.io/mesmacosta/mysql2datacatalog:stable \
+"$PWD":/data mesmacosta/mysql2datacatalog:stable \
 --datacatalog-project-id=$PROJECT_ID \
 --datacatalog-location-id=us-central1 \
 --mysql-host=$public_ip_address \
@@ -63,7 +91,7 @@ docker run --rm --tty -v \
 
 ## Check the results of the script
 
-After the script finishes, you can go to Go to Data Catalog search UI:
+After the script finishes, you can go to Go to Data Catalog
 [Search UI](https://console.cloud.google.com/datacatalog?q=system=mysql)
  and search for MySQL metadata.
 
@@ -72,7 +100,7 @@ After the script finishes, you can go to Go to Data Catalog search UI:
 The easiest way to avoid incurring charges to your Google Cloud account for the resources used in this tutorial is to delete 
 the project you created. Otherwise you can run the clean up scripts below.
 
-To delete the project, follow the steps below:
+**To delete the project**, follow the steps below:
 
 1.  In the Cloud Console, [go to the Projects page](https://console.cloud.google.com/iam-admin/projects).
 
@@ -82,7 +110,7 @@ To delete the project, follow the steps below:
     
 3.  In the dialog, type the project ID, and then click **Shut down** to delete the project.
 
-To delete the created resources and mantain the project,
+**To delete the created resources** and mantain the project,
  follow the steps below:
 
 Delete the MySQL metadata:
@@ -90,22 +118,26 @@ Delete the MySQL metadata:
 ./cleanup-db.sh
 ```
 
-Execute the connector again:
+Execute the cleaner container:
 ```bash
 docker run --rm --tty -v \
-"$PWD":/data gcr.io/mesmacosta/mysql2datacatalog:stable \
---datacatalog-project-id=$PROJECT_ID \
---datacatalog-location-id=us-central1 \
---mysql-host=$public_ip_address \
---mysql-user=$username \
---mysql-pass=$password \
---mysql-database=$database
+"$PWD":/data mesmacosta/mysql-datacatalog-cleaner:stable \
+--datacatalog-project-ids=$PROJECT_ID \
+--rdbms-type=mysql \
+--table-container-type=database
 ```
 
 Delete the MySQL database:
 ```bash
 ./delete-db.sh
 ```
+## Search for the MySQL Entries
+
+Go to Data Catalog search UI:
+[Search UI](https://console.cloud.google.com/datacatalog?q=system=mysql)
+
+Check the search results, and verify that there are no results. Entries for the system `mysql` 
+have been deleted.
 
 ## Congratulations!
 
